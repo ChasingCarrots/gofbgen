@@ -121,7 +121,7 @@ For vectors, the table looks like this:
 
 | fbType \ fbFunc | specified                                       | not specified              |
 | :---            | :---                                            | :---                       |
-| not specified   | value, calls function in-place for each entry   | looks for default function |
+| not specified   | value, calls function in-place for each entry   | looks for default function, calls it for every entry |
 | 'table'         | reference, calls function for each entry        | illegal                    |
 | 'custom'        | reference, calls function once for whole vector | illegal                    |
 | primitive type  | illegal                                         | casts every entry to type  |
