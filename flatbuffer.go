@@ -173,11 +173,8 @@ func (fh *FlatbufferHandler) generateSerializationCode(struc *ast.StructType, im
 // reference semantics (i.e., a table, vector, or string).
 func serializeReferenceType(context *fbContext, opts *flatbufferOptions, variableName string) error {
 	selector := context.targetName + "." + opts.member
-	if opts.asType == "custom" || opts.asType == "table" {
+	if opts.asType == "custom" {
 		write(context.buf, variableName, " := ", opts.fn(selector), "\n")
-		return nil
-	} else if opts.asType == "string" {
-		write(context.buf, variableName, " := flatbuilder.CreateString(", selector, ")\n")
 		return nil
 	} else if opts.isVector {
 		isTable := opts.asType == "table"
@@ -209,6 +206,13 @@ func serializeReferenceType(context *fbContext, opts *flatbufferOptions, variabl
 		write(context.buf, "\n}\n")
 		write(context.buf, variableName, " := flatbuilder.EndVector(len(", selector, "))\n")
 		return err
+	} else if opts.asType == "string" {
+		write(context.buf, variableName, " := flatbuilder.CreateString(", selector, ")\n")
+		return nil
+	} else if opts.asType == "table" {
+		// same as custom, but should only be called after the test for isVector
+		write(context.buf, variableName, " := ", opts.fn(selector), "\n")
+		return nil
 	}
 	return errors.Errorf("Failed to serialize table for member %v", opts.member)
 }
