@@ -116,7 +116,7 @@ func (fh *FlatbufferHandler) generateSerializationCode(struc *ast.StructType, im
 		return err
 	}
 
-	write(context.buf, fmt.Sprintf("func %s(flatbuilder *flatbuffers.Builder, %s %s) flatbuffers.UOffset {\n", context.fnName, context.targetName, context.targetType))
+	write(context.buf, fmt.Sprintf("func %s(flatbuilder *flatbuffers.Builder, %s %s) flatbuffers.UOffsetT {\n", context.fnName, context.targetName, context.targetType))
 
 	// sort all fields with serialization info such that entries that have
 	// reference semantics come first; they need to be serialized before the
