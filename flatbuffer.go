@@ -153,9 +153,9 @@ func (fh *FlatbufferHandler) generateSerializationCode(struc *ast.StructType, im
 				adder(opt.name, opt.fn(selector))
 			} else if opt.asType == "bool" {
 				// special case for bool: it needs to be cast to byte very explicitly.
-				write(context.buf, opt.member, " := byte(1)\n")
+				write(context.buf, opt.member, " := byte(0)\n")
 				write(context.buf, "if (", selector, ") {\n")
-				write(context.buf, "\t", opt.member, " = 0\n")
+				write(context.buf, "\t", opt.member, " = 1\n")
 				write(context.buf, "}\n")
 				adder(opt.name, opt.member)
 			} else {
