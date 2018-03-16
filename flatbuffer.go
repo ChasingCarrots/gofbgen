@@ -22,6 +22,7 @@ type FlatbufferHandler struct {
 	serializationHints map[string]func(string) string
 	buf                bytes.Buffer
 	outputPath         string
+	typePrefix         string
 }
 
 // New constructs a new flatbuffer handler.
@@ -40,6 +41,12 @@ func New(outputPath, pkg string, imports []string, serializationHints map[string
 		write(&fh.buf, "import \"", imp, "\"\n")
 	}
 	return fh
+}
+
+// SetTypePrefix allows you to set a prefix path that will be placed in front of all
+// Type tags for flatbuffers.
+func (fh *FlatbufferHandler) SetTypePrefix(prefix string) {
+	fh.typePrefix = prefix
 }
 
 // BeginFile is only implemented to satisfy the TagHandler interface.
@@ -63,7 +70,7 @@ func (fh *FlatbufferHandler) HandleTag(context tagproc.TagContext, obj *ast.Obje
 	if !ok {
 		return fmt.Errorf("Missing Type in Flatbuffer Tag in %s for %s", tagLiteral, obj.Name)
 	}
-	path := splitTypePath(name)
+	path := splitTypePath(fh.typePrefix + name)
 	// specifies the name of the serialization function to generate.
 	function, ok := tagValues["Function"]
 	if !ok {
