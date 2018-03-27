@@ -8,8 +8,6 @@ import (
 
 	"github.com/chasingcarrots/gotransform"
 
-	"golang.org/x/tools/go/ast/astutil"
-
 	"github.com/chasingcarrots/gotransform/tagparser"
 	"github.com/pkg/errors"
 
@@ -37,6 +35,7 @@ func New(outputPath, pkg string, imports []string, serializationHints map[string
 		outputPath:         outputPath,
 	}
 	write(&fh.buf, "package ", pkg, "\n")
+	write(&fh.buf, "import flatbuffers \"github.com/google/flatbuffers/go\"\n")
 	for _, imp := range imports {
 		write(&fh.buf, "import \"", imp, "\"\n")
 	}
@@ -77,8 +76,7 @@ func (fh *FlatbufferHandler) HandleTag(context tagproc.TagContext, obj *ast.Obje
 		function = "Serialize" + path.name
 	}
 
-	astutil.AddImport(context.FileSet, context.File, path.importPath)
-	astutil.AddNamedImport(context.FileSet, context.File, "flatbuffers", "github.com/google/flatbuffers/go")
+	// astutil.AddImport(context.FileSet, context.File, path.importPath)
 
 	typeSpec := obj.Decl.(*ast.TypeSpec)
 	struc, ok := typeSpec.Type.(*ast.StructType)
