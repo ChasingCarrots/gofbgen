@@ -186,27 +186,48 @@ func serializeReferenceType(context *fbContext, opts *flatbufferOptions, variabl
 		isString := opts.asType == "string"
 		isReference := isTable || isString
 		tableName := opts.member + "___tmpoffsetvec"
+		var element string
+		if !opts.isPtr && opts.isMap {
+			// if the map does not contain pointer types, we need to make a copy because we cannot
+			// take the address of an index in a map
+			element = opts.member + "___tmpstore"
+		} else {
+			element = selector + "[i]"
+		}
+
 		if isReference {
 			// if the values in the vector are of a reference type, we need to serialize them first
 			// before beginning the vector
 			write(context.buf, "var ", tableName, "[]flatbuffers.UOffsetT\n")
-			write(context.buf, "for i := 0; i < len(", selector, "); i++ {\n")
+			write(context.buf, "for i := range ", selector, " {\n")
+			if !opts.isPtr && opts.isMap {
+				write(context.buf, element, " := ", selector, "[i]\n")
+			}
+
 			if isTable {
-				write(context.buf, tableName, " = append(", tableName, ", "+opts.fn(selector+"[i]")+")\n")
+				write(context.buf, tableName, " = append(", tableName, ", "+opts.fn(element)+")\n")
 			} else {
-				write(context.buf, tableName, " = append(", tableName, ", flatbuilder.CreateString(", selector, ")\n")
+				write(context.buf, tableName, " = append(", tableName, ", flatbuilder.CreateString(", element, "[i])\n")
 			}
 			write(context.buf, "}\n")
 		}
 
 		// now write out the vector itself -- in reverse, because flatbuffers only have prepend operations
 		write(context.buf, context.pkg, ".", context.typ, "Start", opts.name, "Vector(flatbuilder, len(", selector, "))\n")
-		write(context.buf, "for i := len(", selector, ") - 1; i >= 0; i-- {\n")
+		if opts.isMap {
+			write(context.buf, "for i := range ", selector, " {\n")
+		} else {
+			write(context.buf, "for i := len(", selector, ") - 1; i >= 0; i-- {\n")
+		}
+
 		var err error
 		if isReference {
 			write(context.buf, "flatbuilder.PrependUOffsetT(", tableName, "[i])")
 		} else {
-			err = vectorInnerFunc(context, opts, selector+"[i]")
+			if !opts.isPtr && opts.isMap {
+				write(context.buf, element, " := ", selector, "[i]\n")
+			}
+			err = vectorInnerFunc(context, opts, element)
 		}
 		write(context.buf, "\n}\n")
 		write(context.buf, variableName, " := flatbuilder.EndVector(len(", selector, "))\n")
@@ -296,8 +317,12 @@ type flatbufferOptions struct {
 	// The function to use for serializing this member (optional). This is override to a cast if a primitive
 	// type is explicitly specified.
 	fn func(string) string
-	// Whether this is a vector or a single value
+	// Whether this should be serialized as a vector
 	isVector bool
+	// Whether the target field has a pointer type
+	isPtr bool
+	// Whether the target field is a map
+	isMap bool
 }
 
 // parseOptions searches a struct for all fields annotated with fbName tags and transforms
@@ -325,7 +350,7 @@ func (fh *FlatbufferHandler) parseOptions(struc *ast.StructType, imports map[str
 		}
 
 		// find the type path of this field and whether it is a primitive type
-		isPrimitive, typePath := findType(m.Type, imports)
+		isPrimitive, isPtr, typePath := findType(m.Type, imports)
 
 		// fbFunc is the function to use for serialization. If no function is specified,
 		// it will look for serialization hints for the type.
@@ -333,6 +358,8 @@ func (fh *FlatbufferHandler) parseOptions(struc *ast.StructType, imports map[str
 		var realFn func(string) string
 		if !hasFn {
 			realFn, hasFn = fh.serializationHints[typePath]
+		} else if isPtr {
+			realFn = func(x string) string { return fn + "(flatbuilder, " + x + ")" }
 		} else {
 			realFn = func(x string) string { return fn + "(flatbuilder, &" + x + ")" }
 		}
@@ -353,7 +380,9 @@ func (fh *FlatbufferHandler) parseOptions(struc *ast.StructType, imports map[str
 		if !isPrimitive && !hasFn {
 			return nil, errors.Errorf("Member %s is not a primitive type (%s) and has no serialization function attached.", m.Names[0], typePath)
 		}
-		_, isVector := m.Type.(*ast.ArrayType)
+		_, isArray := m.Type.(*ast.ArrayType)
+		_, isMap := m.Type.(*ast.MapType)
+		isVector := isArray || isMap
 
 		options = append(options,
 			&flatbufferOptions{
@@ -362,38 +391,43 @@ func (fh *FlatbufferHandler) parseOptions(struc *ast.StructType, imports map[str
 				asType:   typ,
 				fn:       realFn,
 				isVector: isVector,
+				isMap:    isMap,
+				isPtr:    isPtr,
 			},
 		)
 	}
 	return options, nil
 }
 
-func findType(expr ast.Expr, imports map[string]string) (primitiveType bool, path string) {
-	// we may skip an outermost array and a single indirection via pointer
-	t, ok := expr.(*ast.ArrayType)
-	if ok {
+func findType(expr ast.Expr, imports map[string]string) (primitiveType bool, isPtr bool, path string) {
+	// we may skip an outermost array/map and a single indirection via pointer
+	if t, ok := expr.(*ast.ArrayType); ok {
 		expr = t.Elt
+	} else if t, ok := expr.(*ast.MapType); ok {
+		expr = t.Value
 	}
-	s, ok := expr.(*ast.StarExpr)
-	if ok {
+
+	if s, ok := expr.(*ast.StarExpr); ok {
 		expr = s.X
+		isPtr = true
 	}
+
 	if selector, ok := expr.(*ast.SelectorExpr); ok {
 		// assume that it has the form pkg.Name
 		name := selector.Sel.Name
 		importName, ok := selector.X.(*ast.Ident)
 		if !ok {
-			return false, ""
+			return false, isPtr, ""
 		}
-		return true, imports[importName.Name] + "/" + name
+		return true, isPtr, imports[importName.Name] + "/" + name
 	} else if ident, ok := expr.(*ast.Ident); ok {
 		if isPrimitiveType(ident.Name) {
-			return true, ident.Name
+			return true, isPtr, ident.Name
 		}
 		// if it is not a primitive type, prepend the current package name
-		return false, imports[""] + "/" + ident.Name
+		return false, isPtr, imports[""] + "/" + ident.Name
 	} else {
-		return false, ""
+		return false, isPtr, ""
 	}
 }
 
