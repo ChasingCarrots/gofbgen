@@ -53,10 +53,10 @@ import (
 )
 
 func SerializeMove(flatbuilder *flatbuffers.Builder, target *MoveMessage) flatbuffers.UOffsetT {
-    flatbuffertest.MoveMessageStart(flatbuilder)
-    flatbuffertest.MoveMessageAddStarttime(flatbuilder, target.time)
-    flatbuffertest.MoveMessageAddPosition(flatbuilder, flatbuffertest.CreateVector2(flatbuilder, target.position.X, target.position.Y))
-    flatbuffertest.MoveMessageAddVelocity(flatbuilder, flatbuffertest.CreateVector2(flatbuilder, target.velocity.X, target.velocity.Y))
+	flatbuffertest.MoveMessageStart(flatbuilder)
+	flatbuffertest.MoveMessageAddStarttime(flatbuilder, target.time)
+	flatbuffertest.MoveMessageAddPosition(flatbuilder, flatbuffertest.CreateVector2(flatbuilder, target.position.X, target.position.Y))
+	flatbuffertest.MoveMessageAddVelocity(flatbuilder, flatbuffertest.CreateVector2(flatbuilder, target.velocity.X, target.velocity.Y))
 	return flatbuffertest.AccountStateEnd(flatbuilder)
 }
 ```
@@ -66,17 +66,17 @@ The code generator is implemented as a tag handler for the tag processor from th
 
 ```golang
 func setupFlatbufferTask(outputPath string) *newHandlers.FlatbufferHandler {
-    // add serialization hints for primitive types that are commonly used
+	// add serialization hints for primitive types that are commonly used
 	hints := map[string]func(string) string{
-        // specify how to handle a vector
+		// specify how to handle a vector
 		"github.com/chasingcarrots/movement/Vector2": func(x string) string {
 			return "flatbuffertest.CreateVector2(flatbuilder, " + x + ".X, " + x + ".Y)"
 		},
-    }
-    // the package that the serialization code should live in
-    pkg := "movement"
-    // you have to specify the imports manually right now, the tool doesn't currently 
-    // collect them automatically.
+	}
+	// the package that the serialization code should live in
+	pkg := "movement"
+	// you have to specify the imports manually right now, the tool doesn't currently 
+	// collect them automatically.
 	imports := []string{"github.com/chasingcarrots/flatbuffertest"}
 	return gofbgen.New(outputPath, pkg, imports, hints)
 }
@@ -94,7 +94,7 @@ The different types (and their effects) used for `fbType` are as follows:
  ```golang
  type TestID uint16
  type Test struct {
-     ID TestID `fbName:"ID" fbType:"uint16"`
+	ID TestID `fbName:"ID" fbType:"uint16"`
  }
  ```
  Here, we added the `fbType:"uin16"` annotation to communicate that the field should be cast to `uint16` prior to serialization.
