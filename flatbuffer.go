@@ -207,7 +207,7 @@ func serializeReferenceType(context *fbContext, opts *flatbufferOptions, variabl
 			if isTable {
 				write(context.buf, tableName, " = append(", tableName, ", "+opts.fn(element)+")\n")
 			} else {
-				write(context.buf, tableName, " = append(", tableName, ", flatbuilder.CreateString(", element, "[i])\n")
+				write(context.buf, tableName, " = append(", tableName, ", flatbuilder.CreateString(", element, "))\n")
 			}
 			write(context.buf, "}\n")
 		}
